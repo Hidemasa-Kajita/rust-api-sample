@@ -1,0 +1,5 @@
+.env
+/docker/db/data
+!/docker/db/data/.gitkeep
+/docker/db/logs
+/target

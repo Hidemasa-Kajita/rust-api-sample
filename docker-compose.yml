@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  rust-app:
+    container_name: rust-app
+    build: ./docker/rust
+    tty: true
+    volumes:
+      - ./:/var/www/app
+    ports:
+      - 8083:8083
+
+  db:
+    image: postgres:11-alpine
+    ports:
+      - 5433:5432
+    environment:
+      LANG: ja_JP.utf8
+      POSTGRES_USER: app_user
+      POSTGRES_DB: rust-app
+      POSTGRES_PASSWORD: password
+    volumes:
+      - db-store:/var/lib/postgresql
+    restart: always
+
+volumes:
+  db-store:
