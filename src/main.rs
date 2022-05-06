@@ -1,7 +1,5 @@
-extern crate diesel;
-extern crate dotenv;
-
-use actix_web::{get, App, HttpResponse, HttpServer, Responder};
+use actix_web::web::Json;
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 
 use diesel::pg::PgConnection;
@@ -11,8 +9,8 @@ use std::env;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().service(hello).service(index))
-        .bind(("127.0.0.1", 8003))?
+    HttpServer::new(|| App::new().service(hello).service(index).service(store))
+        .bind(("0.0.0.0", 8083))?
         .run()
         .await
 }
@@ -37,6 +35,13 @@ async fn index() -> impl Responder {
     HttpResponse::Ok().json(books)
 }
 
+#[post("/books")]
+async fn store(body: web::Json<app::models::NewPost>) -> impl Responder {
+    let book = create_book(body);
+
+    HttpResponse::Ok().json(book)
+}
+
 // db access.
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -53,4 +58,21 @@ fn show_books() -> Vec<app::models::Post> {
         .limit(5)
         .load::<app::models::Post>(&connection)
         .expect("Error loading posts")
+}
+
+fn create_book(body: Json<app::models::NewPost>) -> app::models::Post {
+    let connection = establish_connection();
+
+    use app::models::NewPost;
+    use app::schema::posts;
+
+    let new_post = NewPost {
+        title: String::from(&body.title),
+        body: String::from(&body.body),
+    };
+
+    diesel::insert_into(posts::table)
+        .values(&new_post)
+        .get_result(&connection)
+        .expect("Error saving new post")
 }
