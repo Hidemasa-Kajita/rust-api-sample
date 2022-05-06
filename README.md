@@ -3,6 +3,7 @@
 
 # watch
 `$ cargo watch -x run`
+`$ cargo watch -x 'run --bin app'`
 
 # check compile
 `$ cargo check`

@@ -1,5 +1,5 @@
 use actix_web::web::Json;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, post, put, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 
 use diesel::pg::PgConnection;
@@ -9,10 +9,16 @@ use std::env;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().service(hello).service(index).service(store))
-        .bind(("0.0.0.0", 8083))?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .service(hello)
+            .service(index)
+            .service(store)
+            .service(update)
+    })
+    .bind(("0.0.0.0", 8083))?
+    .run()
+    .await
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -42,6 +48,18 @@ async fn store(body: web::Json<app::models::NewPost>) -> impl Responder {
     HttpResponse::Ok().json(book)
 }
 
+#[put("/books/{book_id}")]
+async fn update(
+    path_params: web::Path<(i32,)>,
+    body: web::Json<app::models::NewPost>,
+) -> impl Responder {
+    let id = path_params.0;
+
+    let book = update_book(id, body);
+
+    HttpResponse::Ok().json(book)
+}
+
 // db access.
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -55,7 +73,6 @@ fn show_books() -> Vec<app::models::Post> {
 
     let connection = establish_connection();
     posts
-        .limit(5)
         .load::<app::models::Post>(&connection)
         .expect("Error loading posts")
 }
@@ -75,4 +92,18 @@ fn create_book(body: Json<app::models::NewPost>) -> app::models::Post {
         .values(&new_post)
         .get_result(&connection)
         .expect("Error saving new post")
+}
+
+fn update_book(id: i32, params: Json<app::models::NewPost>) -> app::models::Post {
+    use app::schema::posts::dsl::{body, posts, title};
+
+    let connection = establish_connection();
+
+    diesel::update(posts.find(id))
+        .set((
+            title.eq(String::from(&params.title)),
+            body.eq(String::from(&params.body)),
+        ))
+        .get_result::<app::models::Post>(&connection)
+        .expect(&format!("Unable to find post {}", id))
 }
