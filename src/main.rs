@@ -1,5 +1,5 @@
 use actix_web::web::Json;
-use actix_web::{get, post, put, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{delete, get, post, put, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 
 use diesel::pg::PgConnection;
@@ -15,6 +15,7 @@ async fn main() -> std::io::Result<()> {
             .service(index)
             .service(store)
             .service(update)
+            .service(delete)
     })
     .bind(("0.0.0.0", 8083))?
     .run()
@@ -58,6 +59,15 @@ async fn update(
     let book = update_book(id, body);
 
     HttpResponse::Ok().json(book)
+}
+
+#[delete("/books/{book_id}")]
+async fn delete(path_params: web::Path<(i32,)>) -> impl Responder {
+    let id = path_params.0;
+
+    delete_book(id);
+
+    HttpResponse::Ok().json({})
 }
 
 // db access.
@@ -106,4 +116,14 @@ fn update_book(id: i32, params: Json<app::models::NewPost>) -> app::models::Post
         ))
         .get_result::<app::models::Post>(&connection)
         .expect(&format!("Unable to find post {}", id))
+}
+
+fn delete_book(id: i32) {
+    use app::schema::posts::dsl::posts;
+
+    let connection = establish_connection();
+
+    diesel::delete(posts.find(id))
+        .get_result::<app::models::Post>(&connection)
+        .expect("Error deleting new post");
 }
